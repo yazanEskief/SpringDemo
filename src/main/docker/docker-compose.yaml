@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  db:
+    image: "mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: people
+      MYSQL_USER: yazan
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - sutton-spring:/var/lib/mysql
+
+  phpmyadmin:
+    image: "phpmyadmin"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      MYSQL_USER: yazan
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: secret
+    ports:
+      - "8081:80"
+    depends_on:
+      - db
+
+volumes:
+  sutton-spring:
+
