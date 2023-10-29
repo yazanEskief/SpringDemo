@@ -5,6 +5,7 @@ import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -21,7 +22,7 @@ public class LocationController {
         this.locationDAO = locationDAO;
     }
 
-    @GetMapping("")
+    @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public List<Location> getAllLocations(@RequestParam(name = "visitedon", required = false)
                                           @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitedon) {
         if (visitedon == null) {
@@ -31,12 +32,12 @@ public class LocationController {
         return locationDAO.readAllLocationsByVisitedOn(visitedon);
     }
 
-    @GetMapping("/{locationId}")
+    @GetMapping(value = "/{locationId}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public Location getLocationById(@PathVariable long locationId) {
         return locationDAO.readLocationById(locationId);
     }
 
-    @PostMapping("")
+    @PostMapping(value = "", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public void saveLocation(@RequestBody Location location) {
         location.setId(0);
@@ -44,7 +45,7 @@ public class LocationController {
         locationDAO.persistLocation(location);
     }
 
-    @PutMapping("/{locationId}")
+    @PutMapping(value = "/{locationId}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateLocation(@PathVariable long locationId, @RequestBody Location updatedLocation) {
         updatedLocation.setId(locationId);

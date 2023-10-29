@@ -31,7 +31,11 @@ public class DataFaker {
         String email = firstName + "." + lastName + "@" + emails[emailIndex] + ".com";
         LocalDate birthdate = LocalDate.of(year, month, day);
 
-        Person result = new Person(firstName, lastName, birthdate, email);
+        Person result = new Person();
+        result.setFirstName(firstName);
+        result.setLastName(lastName);
+        result.setEmailAddress(email);
+        result.setBirthDate(birthdate);
 
         return result;
     }
@@ -52,7 +56,13 @@ public class DataFaker {
         LocalDate visitedOn = LocalDate.of(year, month, day);
         String cityName = cities[cityIndex];
 
-        return new Location(cityName, longitude, latitude, visitedOn);
+        Location location = new Location();
+        location.setCityName(cityName);
+        location.setLongitude(longitude);
+        location.setLatitude(latitude);
+        location.setVisitedOn(visitedOn);
+
+        return location;
     }
 
     public static List<Person> generatePeopleWithLocations(int peopleNr, int locationForEachPerson) {

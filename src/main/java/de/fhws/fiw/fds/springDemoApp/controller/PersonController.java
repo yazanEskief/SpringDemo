@@ -5,6 +5,7 @@ import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,25 +21,25 @@ public class PersonController {
         this.personDAOImpl = personDAOImpl;
     }
 
-    @GetMapping("")
+    @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public List<Person> getAllPeople(@RequestParam(name = "firstname", defaultValue = "") String firstname,
                                      @RequestParam(name = "lastname", defaultValue = "") String lastname) {
         return personDAOImpl.realAllPeopleByFirstNameOrLastname(firstname, lastname);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping(value = "/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public Person getPersonById(@PathVariable long id) {
         return personDAOImpl.readPersonById(id);
     }
 
-    @PostMapping("")
+    @PostMapping(value = "", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public void savePerson(@RequestBody Person person) {
         person.setId(0);
         personDAOImpl.persistPerson(person);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updatePerson(@PathVariable long id, @RequestBody Person updatedPerson) {
         updatedPerson.setId(id);
@@ -51,17 +52,17 @@ public class PersonController {
         personDAOImpl.deletePerson(id);
     }
 
-    @GetMapping("/{personId}/location/{locationId}")
+    @GetMapping(value = "/{personId}/location/{locationId}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public Location getSingleLocationOfPerson(@PathVariable long personId, @PathVariable long locationId) {
         return personDAOImpl.readSingleLocationOfPerson(personId, locationId);
     }
 
-    @GetMapping("/{personId}/location")
+    @GetMapping(value = "/{personId}/location", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     public List<Location> getAllLocationsOfPerson(@PathVariable long personId) {
         return personDAOImpl.readAllLocationOfPerson(personId);
     }
 
-    @PostMapping("/{personId}/location")
+    @PostMapping(value = "/{personId}/location", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public void addLocationToPerson(@PathVariable long personId, @RequestBody Location location) {
         location.setId(0);
@@ -69,7 +70,7 @@ public class PersonController {
         personDAOImpl.addLocationToPerson(personId, location);
     }
 
-    @PostMapping("/{personId}/locations")
+    @PostMapping(value = "/{personId}/locations", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public void addLocationsToPerson(@PathVariable long personId, @RequestBody List<Location> locations) {
         locations.forEach(l -> l.setId(0));
@@ -77,7 +78,7 @@ public class PersonController {
         personDAOImpl.addAllLocationsToPerson(personId, locations);
     }
 
-    @PutMapping("/{personId}/location/{locationId}")
+    @PutMapping(value = "/{personId}/location/{locationId}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateLocationOfPerson(@PathVariable long personId, @PathVariable long locationId,
                                        @RequestBody Location updatedLocation) {
