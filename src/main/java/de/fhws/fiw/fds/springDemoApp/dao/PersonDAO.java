@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface PersonDAO {
 
-    void persistPerson(Person person);
+    Person persistPerson(Person person);
 
     void updatePerson(long personId, Person person);
 

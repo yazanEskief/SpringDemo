@@ -1,10 +1,15 @@
 package de.fhws.fiw.fds.springDemoApp.controller;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
+
 import de.fhws.fiw.fds.springDemoApp.dao.LocationDAO;
 import de.fhws.fiw.fds.springDemoApp.dao.PersonDAOImpl;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import de.fhws.fiw.fds.springDemoApp.util.DataFaker;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.RepresentationModel;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,9 +29,13 @@ public class Dispatcher {
         this.locationDAO = locationDAO;
     }
 
-    @GetMapping("")
-    public String mainPoint() {
-        return "";
+    @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    public ResponseEntity<RepresentationModel<?>> mainPoint() {
+        RepresentationModel<?> model = new RepresentationModel<>();
+        model.add(linkTo(PersonController.class).withRel("persons").withType(MediaType.APPLICATION_JSON_VALUE));
+        model.add(linkTo(LocationController.class).withRel("locations").withType(MediaType.APPLICATION_JSON_VALUE));
+
+        return ResponseEntity.ok(model);
     }
 
     @GetMapping("/initializedatabase")

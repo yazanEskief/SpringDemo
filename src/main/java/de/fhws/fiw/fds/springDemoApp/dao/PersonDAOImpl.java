@@ -12,14 +12,18 @@ import java.util.List;
 public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     private EntityManager entityManager;
 
-    public PersonDAOImpl(EntityManager entityManager) {
+    private LocationDAO locationDAO;
+
+    public PersonDAOImpl(EntityManager entityManager, LocationDAO locationDAO) {
         this.entityManager = entityManager;
+        this.locationDAO = locationDAO;
     }
 
     @Override
     @Transactional
-    public void persistPerson(Person person) {
+    public Person persistPerson(Person person) {
         entityManager.persist(person);
+        return person;
     }
 
     @Override
@@ -94,8 +98,18 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     }
 
     @Override
+    public List<Location> readLinkedAndUnlinkedLocationsOfPerson(long personId) {
+        readPersonById(personId);
+
+        return entityManager.createQuery("FROM Location l WHERE l.person.id = :personId OR " +
+                "l.person = null", Location.class)
+                .setParameter("personId", personId)
+                .getResultList();
+    }
+
+    @Override
     @Transactional
-    public void addLocationToPerson(long personId, Location location) {
+    public Location addLocationToPerson(long personId, Location location) {
         Person personFromDB = readPersonById(personId);
 
         personFromDB.addLocation(location);
@@ -103,6 +117,8 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
         location.setPerson(personFromDB);
 
         entityManager.merge(personFromDB);
+
+        return location;
     }
 
     @Override
@@ -119,19 +135,29 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
 
     @Override
     @Transactional
-    public void updateLocationOfPerson(long personId, long locationId, Location location) {
-        Location locationFromDB = readSingleLocationOfPerson(personId, locationId);
+    public Location linkLocationToPerson(long personId, long locationId) {
+        Location locationFromDB = locationDAO.readLocationById(locationId);
+        Person personFromDB = readPersonById(personId);
 
-        locationFromDB.updateLocation(location);
+        personFromDB.addLocation(locationFromDB);
+        locationFromDB.setPerson(personFromDB);
 
+        entityManager.merge(personFromDB);
         entityManager.merge(locationFromDB);
+
+        return locationFromDB;
     }
 
     @Override
     @Transactional
-    public void deleteLocationOfPerson(long personId, long locationId) {
+    public void unlinkLocationFromPerson(long personId, long locationId) {
         Location locationFromDB = readSingleLocationOfPerson(personId, locationId);
+        locationFromDB.setPerson(null);
 
-        entityManager.remove(locationFromDB);
+        Person personFromDB = readPersonById(personId);
+        personFromDB.getLocations().removeIf(l -> l.getId() == locationId);
+
+        entityManager.merge(locationFromDB);
+        entityManager.merge(personFromDB);
     }
 }

@@ -1,11 +1,20 @@
 package de.fhws.fiw.fds.springDemoApp.controller;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
+
+import de.fhws.fiw.fds.springDemoApp.dao.LocationDAO;
 import de.fhws.fiw.fds.springDemoApp.dao.PersonDAOImpl;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
+import de.fhws.fiw.fds.springDemoApp.hateoas.LocationModelAssembler;
+import de.fhws.fiw.fds.springDemoApp.hateoas.PersonModelAssembler;
+import de.fhws.fiw.fds.springDemoApp.util.HyperLinks;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,61 +25,112 @@ public class PersonController {
 
     private PersonDAOImpl personDAOImpl;
 
+    private LocationDAO locationDAO;
+
+    private PersonModelAssembler personModelAssembler;
+
+    private LocationModelAssembler locationModelAssembler;
+
     @Autowired
-    public PersonController(PersonDAOImpl personDAOImpl) {
+    public PersonController(PersonDAOImpl personDAOImpl, PersonModelAssembler personModelAssembler,
+                            LocationModelAssembler locationModelAssembler, LocationDAO locationDAO) {
         this.personDAOImpl = personDAOImpl;
+        this.personModelAssembler = personModelAssembler;
+        this.locationModelAssembler = locationModelAssembler;
+        this.locationDAO = locationDAO;
     }
 
     @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public List<Person> getAllPeople(@RequestParam(name = "firstname", defaultValue = "") String firstname,
-                                     @RequestParam(name = "lastname", defaultValue = "") String lastname) {
-        return personDAOImpl.realAllPeopleByFirstNameOrLastname(firstname, lastname);
+    public ResponseEntity<CollectionModel<EntityModel<Person>>> getAllPeople
+            (@RequestParam(name = "firstname", defaultValue = "") String firstname,
+             @RequestParam(name = "lastname", defaultValue = "") String lastname) {
+        List<Person> allPeople = personDAOImpl.realAllPeopleByFirstNameOrLastname(firstname, lastname);
+
+        return ResponseEntity.ok(personModelAssembler.toCollectionModel(allPeople));
     }
 
     @GetMapping(value = "/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public Person getPersonById(@PathVariable long id) {
-        return personDAOImpl.readPersonById(id);
+    public EntityModel<Person> getPersonById(@PathVariable long id) {
+        Person personFromDB = personDAOImpl.readPersonById(id);
+        return personModelAssembler.toModel(personFromDB);
     }
 
     @PostMapping(value = "", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    @ResponseStatus(HttpStatus.CREATED)
-    public void savePerson(@RequestBody Person person) {
+    public ResponseEntity<EntityModel<Person>> savePerson(@RequestBody Person person) {
         person.setId(0);
-        personDAOImpl.persistPerson(person);
+        Person createdPerson = personDAOImpl.persistPerson(person);
+        EntityModel<Person> personEntityModel = personModelAssembler.toModel(createdPerson);
+        return ResponseEntity.created(
+                personEntityModel.getRequiredLink("self").toUri()
+        ).build();
     }
 
     @PutMapping(value = "/{id}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updatePerson(@PathVariable long id, @RequestBody Person updatedPerson) {
+    public ResponseEntity<?> updatePerson(@PathVariable long id, @RequestBody Person updatedPerson) {
         updatedPerson.setId(id);
         personDAOImpl.updatePerson(id, updatedPerson);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deletePerson(@PathVariable long id) {
+    public ResponseEntity<?> deletePerson(@PathVariable long id) {
         personDAOImpl.deletePerson(id);
+        return ResponseEntity
+                .noContent()
+                .header("Link", HyperLinks.createHyperLink(
+                        linkTo(PersonController.class).toUri().toASCIIString(),
+                        "Persons",
+                        MediaType.APPLICATION_JSON_VALUE
+                ))
+                .build();
     }
 
-    @GetMapping(value = "/{personId}/location/{locationId}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public Location getSingleLocationOfPerson(@PathVariable long personId, @PathVariable long locationId) {
-        return personDAOImpl.readSingleLocationOfPerson(personId, locationId);
+    @GetMapping(value = "/{personId}/location/{locationId}",
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    public ResponseEntity<EntityModel<Location>> getSingleLocationOfPerson(@PathVariable long personId,
+                                                                           @PathVariable long locationId) {
+        Location locationFromDB = personDAOImpl.readSingleLocationOfPerson(personId, locationId);
+
+        return ResponseEntity.ok()
+                .body(locationModelAssembler.toModel(locationFromDB));
     }
 
-    @GetMapping(value = "/{personId}/location", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public List<Location> getAllLocationsOfPerson(@PathVariable long personId) {
-        return personDAOImpl.readAllLocationOfPerson(personId);
+    @GetMapping(value = "/{personId}/location",
+            produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    public ResponseEntity<CollectionModel<EntityModel<Location>>> getAllLocationsOfPerson
+            (@PathVariable long personId,
+             @RequestParam(name = "showAll", required = false, defaultValue = "false") boolean showAll) {
+
+        if (showAll == false) {
+            List<Location> locationsOfPerson = personDAOImpl.readAllLocationOfPerson(personId);
+            return ResponseEntity.ok(locationModelAssembler
+                    .toCollectionModelOnPerson(locationsOfPerson, showAll, personId));
+        }
+
+        List<Location> locationsFromDB = personDAOImpl.readLinkedAndUnlinkedLocationsOfPerson(personId);
+
+        return ResponseEntity.ok(
+                locationModelAssembler.toCollectionModelOnPerson(locationsFromDB, showAll, personId)
+        );
     }
 
-    @PostMapping(value = "/{personId}/location", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @PostMapping(value = "/{personId}/location",
+            consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
-    public void addLocationToPerson(@PathVariable long personId, @RequestBody Location location) {
+    public ResponseEntity<EntityModel<Location>> addLocationToPerson(@PathVariable long personId,
+                                                                     @RequestBody Location location) {
         location.setId(0);
 
-        personDAOImpl.addLocationToPerson(personId, location);
+        Location createdLocation = personDAOImpl.addLocationToPerson(personId, location);
+
+        return ResponseEntity.created(
+                        linkTo(methodOn(PersonController.class)
+                                .getSingleLocationOfPerson(personId, createdLocation.getId())).toUri())
+                .body(locationModelAssembler.toModel(createdLocation));
     }
 
-    @PostMapping(value = "/{personId}/locations", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
+    @PostMapping(value = "/{personId}/locations",
+            consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
     @ResponseStatus(HttpStatus.CREATED)
     public void addLocationsToPerson(@PathVariable long personId, @RequestBody List<Location> locations) {
         locations.forEach(l -> l.setId(0));
@@ -78,26 +138,34 @@ public class PersonController {
         personDAOImpl.addAllLocationsToPerson(personId, locations);
     }
 
-    @PutMapping(value = "/{personId}/location/{locationId}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void updateLocationOfPerson(@PathVariable long personId, @PathVariable long locationId,
-                                       @RequestBody Location updatedLocation) {
-        updatedLocation.setId(locationId);
+    @PutMapping(value = "/{personId}/location/{locationId}")
+    public ResponseEntity<EntityModel<Location>> linkLocationToPerson(@PathVariable long personId,
+                                                                      @PathVariable long locationId) {
+        Location linkedLocation = personDAOImpl.linkLocationToPerson(personId, locationId);
 
-        personDAOImpl.updateLocationOfPerson(personId, locationId, updatedLocation);
+        return ResponseEntity.ok()
+                .body(locationModelAssembler.toModel(linkedLocation));
     }
 
     @DeleteMapping("{personId}/location/{locationId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteSingleLocationOfPerson(@PathVariable long personId, @PathVariable long locationId) {
-        personDAOImpl.deleteLocationOfPerson(personId, locationId);
+    public ResponseEntity<?> unLinkLocationFromPerson(@PathVariable long personId, @PathVariable long locationId) {
+        personDAOImpl.unlinkLocationFromPerson(personId, locationId);
+
+        return ResponseEntity.noContent()
+                .header("Link", HyperLinks.createHyperLink(
+                        linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, false))
+                                .toUri().toASCIIString(),
+                        "locationOfPerson",
+                        MediaType.APPLICATION_JSON_VALUE
+                )).build();
     }
 
     @DeleteMapping("/{personId}/location")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteSpecificLocationsOfPerson(@PathVariable final long personId, @RequestBody(required = false) final List<Long> locationIds,
+    public void deleteSpecificLocationsOfPerson(@PathVariable final long personId,
+                                                @RequestBody(required = false) final List<Long> locationIds,
                                                 @RequestParam(name = "all", defaultValue = "false") final boolean all) {
-        if(all) {
+        if (all) {
             List<Location> locationsToDelete = personDAOImpl.readAllLocationOfPerson(personId);
             List<Long> locationsIdsToDelete = locationsToDelete.stream().map(Location::getId).toList();
             personDAOImpl.deleteAllLocationsOfPerson(personId, locationsIdsToDelete);

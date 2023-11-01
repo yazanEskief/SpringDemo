@@ -19,18 +19,22 @@ public class LocationDAOImpl implements LocationDAO {
 
     @Override
     @Transactional
-    public void persistLocation(Location location) {
+    public Location persistLocation(Location location) {
         entityManager.persist(location);
+
+        return location;
     }
 
     @Override
     @Transactional
-    public void updateLocation(long locationId, Location location) {
+    public Location updateLocation(long locationId, Location location) {
         Location locationFromDB = readLocationById(locationId);
 
         locationFromDB.updateLocation(location);
 
         entityManager.merge(locationFromDB);
+
+        return locationFromDB;
     }
 
     @Override

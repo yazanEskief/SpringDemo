@@ -7,9 +7,9 @@ import java.util.List;
 
 public interface LocationDAO {
 
-    void persistLocation(Location location);
+    Location persistLocation(Location location);
 
-    void updateLocation(long locationId, Location location);
+    Location updateLocation(long locationId, Location location);
 
     void deleteLocation(long id);
 
