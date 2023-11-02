@@ -2,6 +2,8 @@ package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
+import de.fhws.fiw.fds.springDemoApp.exception.LinkLocationToPersonNotAllowedException;
+import de.fhws.fiw.fds.springDemoApp.exception.PersonNotFoundException;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +56,7 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
         Person personFromDB = entityManager.find(Person.class, personId);
         if (personFromDB != null) {
             return personFromDB;
-        } else throw new RuntimeException("Person with ID: " + personId + " couldn't be found");
+        } else throw new PersonNotFoundException("Person with ID: " + personId + " couldn't be found");
     }
 
     @Override
@@ -78,22 +80,25 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
 
     @Override
     public List<Location> readAllLocationOfPerson(long personId) {
-        List<Location> locationsOfPerson = entityManager.createQuery("FROM Location WHERE person.id = :personId")
-                .setParameter("personId", personId)
-                .getResultList();
+        List<Location> locationsOfPerson =
+                entityManager.createQuery("FROM Location WHERE person.id = :personId", Location.class)
+                        .setParameter("personId", personId)
+                        .getResultList();
         return locationsOfPerson;
     }
 
     @Override
     public Location readSingleLocationOfPerson(long personId, long locationId) {
-        Location singleLocationOfPerson = entityManager.createQuery("FROM Location WHERE person.id = :personId AND id = :locationId"
-                        , Location.class)
-                .setParameter("personId", personId)
-                .setParameter("locationId", locationId)
-                .getSingleResult();
-        if(singleLocationOfPerson == null) {
-            throw new RuntimeException("Location with id: " + locationId + " for person with id: " + personId + " not found");
-        }
+        Location singleLocationOfPerson =
+                entityManager.createQuery("FROM Location WHERE person.id = :personId AND id = :locationId",
+                                Location.class)
+                        .setParameter("personId", personId)
+                        .setParameter("locationId", locationId)
+                        .getResultStream().findFirst().orElseThrow(() -> {
+                            throw new PersonNotFoundException("Location with ID: " + locationId + " is not found for Person" +
+                                    " with ID: " + personId);
+                        });
+
         return singleLocationOfPerson;
     }
 
@@ -102,7 +107,7 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
         readPersonById(personId);
 
         return entityManager.createQuery("FROM Location l WHERE l.person.id = :personId OR " +
-                "l.person = null", Location.class)
+                        "l.person = null", Location.class)
                 .setParameter("personId", personId)
                 .getResultList();
     }
@@ -123,7 +128,7 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
 
     @Override
     @Transactional
-    public void addAllLocationsToPerson(long personId, List<Location> locations) {
+    public List<Location> addAllLocationsToPerson(long personId, List<Location> locations) {
         Person personFromDB = readPersonById(personId);
 
         personFromDB.addAllLocations(locations);
@@ -131,6 +136,8 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
         locations.forEach(l -> l.setPerson(personFromDB));
 
         entityManager.merge(personFromDB);
+
+        return locations;
     }
 
     @Override
@@ -138,6 +145,11 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     public Location linkLocationToPerson(long personId, long locationId) {
         Location locationFromDB = locationDAO.readLocationById(locationId);
         Person personFromDB = readPersonById(personId);
+
+        if (locationFromDB.getPerson() != null && locationFromDB.getPerson().getId() != personFromDB.getId()) {
+            throw new LinkLocationToPersonNotAllowedException("Location with ID: " + locationId + " is already linked " +
+                    "to another Person with ID: " + locationFromDB.getPerson().getId());
+        }
 
         personFromDB.addLocation(locationFromDB);
         locationFromDB.setPerson(personFromDB);
@@ -150,14 +162,19 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
 
     @Override
     @Transactional
-    public void unlinkLocationFromPerson(long personId, long locationId) {
-        Location locationFromDB = readSingleLocationOfPerson(personId, locationId);
-        locationFromDB.setPerson(null);
+    public Location unlinkLocationFromPerson(long personId, long locationId) {
+        try {
+            Location locationFromDB = readSingleLocationOfPerson(personId, locationId);
+            locationFromDB.setPerson(null);
+            Person personFromDB = readPersonById(personId);
+            personFromDB.getLocations().removeIf(l -> l.getId() == locationId);
 
-        Person personFromDB = readPersonById(personId);
-        personFromDB.getLocations().removeIf(l -> l.getId() == locationId);
+            entityManager.merge(personFromDB);
+            entityManager.merge(locationFromDB);
 
-        entityManager.merge(locationFromDB);
-        entityManager.merge(personFromDB);
+            return locationFromDB;
+        } catch (Exception e) {
+            throw new LinkLocationToPersonNotAllowedException(e.getMessage());
+        }
     }
 }

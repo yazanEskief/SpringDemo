@@ -16,7 +16,7 @@ public interface PersonLocationDAO {
 
     Location addLocationToPerson(long personId, Location location);
 
-    void addAllLocationsToPerson(long personId, List<Location> locations);
+    List<Location> addAllLocationsToPerson(long personId, List<Location> locations);
 
     @Transactional
     default void addAllLocationsToPerson(long personId, Location... locations) {
@@ -25,15 +25,15 @@ public interface PersonLocationDAO {
 
     Location linkLocationToPerson(long personId, long locationId);
 
-    void unlinkLocationFromPerson(long personId, long locationId);
+    Location unlinkLocationFromPerson(long personId, long locationId);
 
     @Transactional
-    default void deleteAllLocationsOfPerson(long personId, Long... locationsIds) {
-        deleteAllLocationsOfPerson(personId, Arrays.asList(locationsIds));
+    default void unlinkLocationsOfPerson(long personId, Long... locationsIds) {
+        unlinkLocationsOfPerson(personId, Arrays.asList(locationsIds));
     }
 
     @Transactional
-    default void deleteAllLocationsOfPerson(long personId, List<Long> locationsIds) {
+    default void unlinkLocationsOfPerson(long personId, List<Long> locationsIds) {
         locationsIds.forEach(locationId -> unlinkLocationFromPerson(personId, locationId));
     }
 }

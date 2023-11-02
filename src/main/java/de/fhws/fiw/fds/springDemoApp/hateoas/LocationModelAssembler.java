@@ -13,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 @Component
@@ -89,6 +88,9 @@ public class LocationModelAssembler implements RepresentationModelAssembler<Loca
 
         locationModels.add(linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, showAll))
                 .withSelfRel().withType(MediaType.APPLICATION_JSON_VALUE));
+
+        locationModels.add(linkTo(methodOn(PersonController.class).addLocationsToPerson(personId, null))
+                .withRel("createMultipleLocations").withType(MediaType.APPLICATION_JSON_VALUE));
 
         if (showAll) {
             locationModels.add(linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, false))

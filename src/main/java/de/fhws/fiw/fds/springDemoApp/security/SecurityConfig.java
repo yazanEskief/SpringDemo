@@ -19,6 +19,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "api/**").permitAll()
                 .requestMatchers(HttpMethod.PUT, "api/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "api/**").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "api/**").permitAll()
         );
 
         http.httpBasic(Customizer.withDefaults());

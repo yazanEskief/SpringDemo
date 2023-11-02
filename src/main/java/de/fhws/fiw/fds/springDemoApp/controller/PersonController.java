@@ -2,13 +2,14 @@ package de.fhws.fiw.fds.springDemoApp.controller;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
-import de.fhws.fiw.fds.springDemoApp.dao.LocationDAO;
 import de.fhws.fiw.fds.springDemoApp.dao.PersonDAOImpl;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
+import de.fhws.fiw.fds.springDemoApp.exception.UnsupportedUnlinkOperation;
 import de.fhws.fiw.fds.springDemoApp.hateoas.LocationModelAssembler;
 import de.fhws.fiw.fds.springDemoApp.hateoas.PersonModelAssembler;
 import de.fhws.fiw.fds.springDemoApp.util.HyperLinks;
+import de.fhws.fiw.fds.springDemoApp.util.UnlinkResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
@@ -17,27 +18,25 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/person")
 public class PersonController {
 
-    private PersonDAOImpl personDAOImpl;
+    final private PersonDAOImpl personDAOImpl;
 
-    private LocationDAO locationDAO;
+    final private PersonModelAssembler personModelAssembler;
 
-    private PersonModelAssembler personModelAssembler;
-
-    private LocationModelAssembler locationModelAssembler;
+    final private LocationModelAssembler locationModelAssembler;
 
     @Autowired
     public PersonController(PersonDAOImpl personDAOImpl, PersonModelAssembler personModelAssembler,
-                            LocationModelAssembler locationModelAssembler, LocationDAO locationDAO) {
+                            LocationModelAssembler locationModelAssembler) {
         this.personDAOImpl = personDAOImpl;
         this.personModelAssembler = personModelAssembler;
         this.locationModelAssembler = locationModelAssembler;
-        this.locationDAO = locationDAO;
     }
 
     @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
@@ -116,7 +115,6 @@ public class PersonController {
 
     @PostMapping(value = "/{personId}/location",
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<EntityModel<Location>> addLocationToPerson(@PathVariable long personId,
                                                                      @RequestBody Location location) {
         location.setId(0);
@@ -131,14 +129,17 @@ public class PersonController {
 
     @PostMapping(value = "/{personId}/locations",
             consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    @ResponseStatus(HttpStatus.CREATED)
-    public void addLocationsToPerson(@PathVariable long personId, @RequestBody List<Location> locations) {
+    public ResponseEntity<CollectionModel<EntityModel<Location>>> addLocationsToPerson
+            (@PathVariable long personId, @RequestBody List<Location> locations) {
         locations.forEach(l -> l.setId(0));
 
-        personDAOImpl.addAllLocationsToPerson(personId, locations);
+        List<Location> createdLocations = personDAOImpl.addAllLocationsToPerson(personId, locations);
+
+        return ResponseEntity.status(HttpStatus.MULTI_STATUS)
+                .body(locationModelAssembler.toCollectionModelOnPerson(createdLocations, false, personId));
     }
 
-    @PutMapping(value = "/{personId}/location/{locationId}")
+    @PatchMapping(value = "/{personId}/location/{locationId}")
     public ResponseEntity<EntityModel<Location>> linkLocationToPerson(@PathVariable long personId,
                                                                       @PathVariable long locationId) {
         Location linkedLocation = personDAOImpl.linkLocationToPerson(personId, locationId);
@@ -147,7 +148,7 @@ public class PersonController {
                 .body(locationModelAssembler.toModel(linkedLocation));
     }
 
-    @DeleteMapping("{personId}/location/{locationId}")
+    @PutMapping("{personId}/location/{locationId}")
     public ResponseEntity<?> unLinkLocationFromPerson(@PathVariable long personId, @PathVariable long locationId) {
         personDAOImpl.unlinkLocationFromPerson(personId, locationId);
 
@@ -160,16 +161,42 @@ public class PersonController {
                 )).build();
     }
 
-    @DeleteMapping("/{personId}/location")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteSpecificLocationsOfPerson(@PathVariable final long personId,
-                                                @RequestBody(required = false) final List<Long> locationIds,
-                                                @RequestParam(name = "all", defaultValue = "false") final boolean all) {
-        if (all) {
-            List<Location> locationsToDelete = personDAOImpl.readAllLocationOfPerson(personId);
-            List<Long> locationsIdsToDelete = locationsToDelete.stream().map(Location::getId).toList();
-            personDAOImpl.deleteAllLocationsOfPerson(personId, locationsIdsToDelete);
+    @PatchMapping("/{personId}/location")
+    public ResponseEntity<CollectionModel<UnlinkResponse>> unlinkLocationsOfPerson(
+            @PathVariable final long personId,
+            @RequestParam(name = "ids", defaultValue = "") final List<Long> locationIds) {
 
-        } else personDAOImpl.deleteAllLocationsOfPerson(personId, locationIds);
+        if (locationIds.isEmpty()) {
+            throw new UnsupportedUnlinkOperation("No ids for locations to unlink from Person with ID: "
+                    + personId + " are provided");
+        }
+
+        List<UnlinkResponse> responses = new ArrayList<>();
+
+        for (Long id : locationIds) {
+            try {
+                personDAOImpl.unlinkLocationFromPerson(personId, id);
+                var unlinkedResponse = new UnlinkResponse(
+                        HttpStatus.OK.value() + " " + HttpStatus.OK.getReasonPhrase(),
+                        null,
+                        linkTo(methodOn(PersonController.class).unLinkLocationFromPerson(personId, id))
+                                .toUri().toASCIIString());
+                responses.add(unlinkedResponse);
+            } catch (Exception e) {
+                var unlinkedResponse = new UnlinkResponse(
+                        HttpStatus.BAD_REQUEST.value() + " " + HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                        e.getMessage(),
+                        linkTo(methodOn(PersonController.class).unLinkLocationFromPerson(personId, id))
+                                .toUri().toASCIIString());
+                responses.add(unlinkedResponse);
+            }
+        }
+
+        CollectionModel<UnlinkResponse> model = CollectionModel.of(responses);
+        model.add(linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, false))
+                .withRel("locationOfPerson").withType(MediaType.APPLICATION_JSON_VALUE));
+
+        return ResponseEntity.status(HttpStatus.MULTI_STATUS)
+                .body(model);
     }
 }

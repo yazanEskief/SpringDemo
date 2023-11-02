@@ -21,9 +21,9 @@ import java.util.List;
 @RequestMapping("/api/location")
 public class LocationController {
 
-    private LocationDAO locationDAO;
+    final private LocationDAO locationDAO;
 
-    private LocationModelAssembler assembler;
+    final private LocationModelAssembler assembler;
 
     @Autowired
     public LocationController(LocationDAO locationDAO, LocationModelAssembler assembler) {

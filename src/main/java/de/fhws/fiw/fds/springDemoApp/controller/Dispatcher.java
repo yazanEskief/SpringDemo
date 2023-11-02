@@ -20,8 +20,8 @@ import java.util.List;
 @RequestMapping("/api")
 public class Dispatcher {
 
-    private PersonDAOImpl personDAOImpl;
-    private LocationDAO locationDAO;
+    final private PersonDAOImpl personDAOImpl;
+    final private LocationDAO locationDAO;
 
     @Autowired
     public Dispatcher(PersonDAOImpl personDAOImpl, LocationDAO locationDAO) {
