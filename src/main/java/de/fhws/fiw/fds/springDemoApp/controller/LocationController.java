@@ -5,17 +5,18 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 import de.fhws.fiw.fds.springDemoApp.dao.LocationDAO;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.hateoas.LocationModelAssembler;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.HyperLinks;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/location")
@@ -32,17 +33,17 @@ public class LocationController {
     }
 
     @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public ResponseEntity<CollectionModel<EntityModel<Location>>> getAllLocations(@RequestParam(name = "visitedon", required = false)
-                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitedon) {
-        if (visitedon == null) {
-            List<Location> locationsFromDB = locationDAO.readAllLocations();
+    public ResponseEntity<PagedModel<EntityModel<Location>>> getAllLocations(
+            @RequestParam(name = "visitedon", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate visitedon,
+            @RequestParam(name = "page", defaultValue = "0") final int page,
+            @RequestParam(name = "size", defaultValue = "20") final int size,
+            @RequestParam(name = "sort", defaultValue = "id") final String sort) {
+        var pagingAndSortingContext = new PagingAndSortingContext(page, size, sort, Location.class);
 
-            return ResponseEntity.ok(assembler.toCollectionModel(locationsFromDB));
-        }
+        Page<Location> locationsFromDB = locationDAO.readAllLocationsByVisitedOn(visitedon, pagingAndSortingContext);
 
-        List<Location> locationsFromDB = locationDAO.readAllLocationsByVisitedOn(visitedon);
-
-        return ResponseEntity.ok(assembler.toCollectionModel(locationsFromDB));
+        return ResponseEntity.ok(assembler.toPagedModel(locationsFromDB, pagingAndSortingContext, visitedon));
     }
 
     @GetMapping(value = "/{locationId}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})

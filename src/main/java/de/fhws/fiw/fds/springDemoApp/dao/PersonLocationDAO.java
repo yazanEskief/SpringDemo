@@ -1,6 +1,8 @@
 package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
+import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
@@ -8,11 +10,12 @@ import java.util.List;
 
 public interface PersonLocationDAO {
 
-    List<Location> readAllLocationOfPerson(long personId);
+    long getLocationOfPersonCount(long personId);
+    Page<Location> readAllLocationOfPerson(long personId, PagingAndSortingContext pagingAndSortingContext);
 
     Location readSingleLocationOfPerson(long personId, long locationId);
 
-    List<Location> readLinkedAndUnlinkedLocationsOfPerson(long personId);
+    Page<Location> readLinkedAndUnlinkedLocationsOfPerson(long personId, PagingAndSortingContext pagingAndSortingContext);
 
     Location addLocationToPerson(long personId, Location location);
 

@@ -8,11 +8,15 @@ import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import de.fhws.fiw.fds.springDemoApp.exception.UnsupportedUnlinkOperation;
 import de.fhws.fiw.fds.springDemoApp.hateoas.LocationModelAssembler;
 import de.fhws.fiw.fds.springDemoApp.hateoas.PersonModelAssembler;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.HyperLinks;
+import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import de.fhws.fiw.fds.springDemoApp.util.UnlinkResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.PagedModel;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,12 +44,21 @@ public class PersonController {
     }
 
     @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public ResponseEntity<CollectionModel<EntityModel<Person>>> getAllPeople
+    public ResponseEntity<PagedModel<EntityModel<Person>>> getAllPeople
             (@RequestParam(name = "firstname", defaultValue = "") String firstname,
-             @RequestParam(name = "lastname", defaultValue = "") String lastname) {
-        List<Person> allPeople = personDAOImpl.realAllPeopleByFirstNameOrLastname(firstname, lastname);
+             @RequestParam(name = "lastname", defaultValue = "") String lastname,
+             @RequestParam(name = "op", defaultValue = "AND") final Operation operation,
+             @RequestParam(name = "page", defaultValue = "0") final int page,
+             @RequestParam(name = "size", defaultValue = "20") final int size,
+             @RequestParam(name = "sort", defaultValue = "id") final String sort) {
+        var pagingContext = new PagingAndSortingContext(page, size, sort, Person.class);
 
-        return ResponseEntity.ok(personModelAssembler.toCollectionModel(allPeople));
+        Page<Person> allPeople =
+                personDAOImpl.realAllPeopleByFirstNameLastname(firstname, lastname, operation, pagingContext);
+
+        var result = personModelAssembler.toPagedModel(allPeople, firstname, lastname, operation, pagingContext);
+
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping(value = "/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
@@ -96,20 +109,25 @@ public class PersonController {
 
     @GetMapping(value = "/{personId}/location",
             produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public ResponseEntity<CollectionModel<EntityModel<Location>>> getAllLocationsOfPerson
+    public ResponseEntity<PagedModel<EntityModel<Location>>> getAllLocationsOfPerson
             (@PathVariable long personId,
-             @RequestParam(name = "showAll", required = false, defaultValue = "false") boolean showAll) {
+             @RequestParam(name = "showAll", required = false, defaultValue = "false") boolean showAll,
+             @RequestParam(name = "page", defaultValue = "0") final int page,
+             @RequestParam(name = "size", defaultValue = "20") final int size,
+             @RequestParam(name = "sort", defaultValue = "id") final String sort) {
 
+        PagingAndSortingContext pagingAndSortingContext = new PagingAndSortingContext(page, size, sort, Location.class);
         if (showAll == false) {
-            List<Location> locationsOfPerson = personDAOImpl.readAllLocationOfPerson(personId);
+            Page<Location> locationsOfPerson = personDAOImpl.readAllLocationOfPerson(personId, pagingAndSortingContext);
             return ResponseEntity.ok(locationModelAssembler
-                    .toCollectionModelOnPerson(locationsOfPerson, showAll, personId));
+                    .toPagedModelOnPerson(locationsOfPerson, showAll, personId, pagingAndSortingContext));
         }
 
-        List<Location> locationsFromDB = personDAOImpl.readLinkedAndUnlinkedLocationsOfPerson(personId);
+        Page<Location> locationsFromDB = personDAOImpl.readLinkedAndUnlinkedLocationsOfPerson(personId,
+                pagingAndSortingContext);
 
         return ResponseEntity.ok(
-                locationModelAssembler.toCollectionModelOnPerson(locationsFromDB, showAll, personId)
+                locationModelAssembler.toPagedModelOnPerson(locationsFromDB, showAll, personId, pagingAndSortingContext)
         );
     }
 
@@ -154,7 +172,8 @@ public class PersonController {
 
         return ResponseEntity.noContent()
                 .header("Link", HyperLinks.createHyperLink(
-                        linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, false))
+                        linkTo(methodOn(PersonController.class)
+                                .getAllLocationsOfPerson(personId, false, 0, 20, "id"))
                                 .toUri().toASCIIString(),
                         "locationOfPerson",
                         MediaType.APPLICATION_JSON_VALUE
@@ -193,7 +212,8 @@ public class PersonController {
         }
 
         CollectionModel<UnlinkResponse> model = CollectionModel.of(responses);
-        model.add(linkTo(methodOn(PersonController.class).getAllLocationsOfPerson(personId, false))
+        model.add(linkTo(methodOn(PersonController.class)
+                .getAllLocationsOfPerson(personId, false, 0, 20, "id"))
                 .withRel("locationOfPerson").withType(MediaType.APPLICATION_JSON_VALUE));
 
         return ResponseEntity.status(HttpStatus.MULTI_STATUS)

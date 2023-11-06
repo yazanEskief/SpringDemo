@@ -2,7 +2,10 @@ package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.exception.LocationNotFoundException;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import jakarta.persistence.EntityManager;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,19 @@ public class LocationDAOImpl implements LocationDAO {
 
     public LocationDAOImpl(EntityManager entityManager) {
         this.entityManager = entityManager;
+    }
+
+    @Override
+    public long getLocationsCount(LocalDate visitedOn) {
+        String query = visitedOn == null ? "SELECT COUNT(l) FROM Location l" :
+                "SELECT COUNT(*) FROM Location  WHERE visitedOn = :visitedOn";
+        var typedQuery = entityManager.createQuery(query);
+
+        if(visitedOn != null) {
+            typedQuery.setParameter("visitedOn", visitedOn);
+        }
+
+        return (long)typedQuery.getSingleResult();
     }
 
     @Override
@@ -68,10 +84,24 @@ public class LocationDAOImpl implements LocationDAO {
     }
 
     @Override
-    public List<Location> readAllLocationsByVisitedOn(LocalDate visitedOn) {
-        List<Location> locationFromDB = entityManager.createQuery("FROM Location WHERE visitedOn = :visitedOn", Location.class)
-                .setParameter("visitedOn", visitedOn)
-                .getResultList();
-        return locationFromDB;
+    public Page<Location> readAllLocationsByVisitedOn(LocalDate visitedOn,
+                                                      PagingAndSortingContext pagingAndSortingContext) {
+        long total = getLocationsCount(visitedOn);
+        int offset = pagingAndSortingContext.calculateOffset(total);
+
+        String query = visitedOn != null ? "FROM Location WHERE visitedOn = :visitedOn ORDER BY " +
+                pagingAndSortingContext.getSortForDBAccess()
+                : "FROM Location ORDER BY " + pagingAndSortingContext.getSortForDBAccess();
+        var typedQuery = entityManager.createQuery(query, Location.class)
+                .setFirstResult(offset)
+                .setMaxResults(pagingAndSortingContext.getSize());
+
+        if(visitedOn != null) {
+            typedQuery = typedQuery.setParameter("visitedOn", visitedOn);
+        }
+
+        List<Location> locationFromDB = typedQuery.getResultList();
+
+        return new PageImpl<>(locationFromDB, pagingAndSortingContext.getPageable(), total);
     }
 }

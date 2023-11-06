@@ -1,11 +1,15 @@
 package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
+import org.springframework.data.domain.Page;
 
 import java.time.LocalDate;
 import java.util.List;
 
 public interface LocationDAO {
+
+    long getLocationsCount(LocalDate visitedOn);
 
     Location persistLocation(Location location);
 
@@ -19,5 +23,5 @@ public interface LocationDAO {
 
     Location readLocationById(long locationId);
 
-    List<Location> readAllLocationsByVisitedOn(LocalDate visitedOn);
+    Page<Location> readAllLocationsByVisitedOn(LocalDate visitedOn, PagingAndSortingContext pagingAndSortingContext);
 }

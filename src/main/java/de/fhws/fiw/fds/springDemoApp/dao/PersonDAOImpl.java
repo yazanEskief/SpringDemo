@@ -4,7 +4,10 @@ import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import de.fhws.fiw.fds.springDemoApp.exception.LinkLocationToPersonNotAllowedException;
 import de.fhws.fiw.fds.springDemoApp.exception.PersonNotFoundException;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
+import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import jakarta.persistence.EntityManager;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +29,11 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     public Person persistPerson(Person person) {
         entityManager.persist(person);
         return person;
+    }
+
+    @Override
+    public long getPersonCount() {
+        return (long) entityManager.createQuery("SELECT COUNT(s) FROM Person s").getSingleResult();
     }
 
     @Override
@@ -67,24 +75,51 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     }
 
     @Override
-    public List<Person> realAllPeopleByFirstNameOrLastname(String firstName, String lastName) {
-        List<Person> peopleByFirstOrLastName = entityManager.createQuery("""
-                        FROM Person p
-                        WHERE p.firstName LIKE :firstName OR p.lastName LIKE :lastName
-                        """, Person.class)
+    public Page<Person> realAllPeopleByFirstNameLastname(final String firstName,
+                                                         final String lastName,
+                                                         final Operation operation,
+                                                         final PagingAndSortingContext context) {
+        long total = getPersonCount();
+        int offset = context.calculateOffset(total);
+
+        List<Person> peopleByFirstOrLastName = entityManager.createQuery(
+                        "FROM Person WHERE firstName LIKE :firstName " + operation.toString() + " lastName LIKE :lastName" +
+                                " ORDER BY " + context.getSortForDBAccess(),
+                        Person.class)
                 .setParameter("firstName", "%" + firstName + "%")
                 .setParameter("lastName", "%" + lastName + "%")
+                .setFirstResult(offset)
+                .setMaxResults(context.getSize())
                 .getResultList();
-        return peopleByFirstOrLastName;
+
+        Pageable pageable = context.getPageable();
+        return new PageImpl<>(peopleByFirstOrLastName, pageable, total);
     }
 
     @Override
-    public List<Location> readAllLocationOfPerson(long personId) {
+    public long getLocationOfPersonCount(long personId) {
+        return (long) entityManager.createQuery("SELECT COUNT(l) FROM Location l WHERE l.person.id = :personId")
+                .setParameter("personId", personId)
+                .getSingleResult();
+    }
+
+    @Override
+    public Page<Location> readAllLocationOfPerson(long personId, PagingAndSortingContext pagingAndSortingContext) {
+        readPersonById(personId);
+        long total = getLocationOfPersonCount(personId);
+        int offset = pagingAndSortingContext.calculateOffset(total);
+
         List<Location> locationsOfPerson =
-                entityManager.createQuery("FROM Location WHERE person.id = :personId", Location.class)
+                entityManager.createQuery("FROM Location WHERE person.id = :personId" +
+                                        " ORDER BY " + pagingAndSortingContext.getSortForDBAccess()
+                                , Location.class)
                         .setParameter("personId", personId)
+                        .setFirstResult(offset)
+                        .setMaxResults(pagingAndSortingContext.getSize())
                         .getResultList();
-        return locationsOfPerson;
+
+        Pageable pageable = pagingAndSortingContext.getPageable();
+        return new PageImpl<>(locationsOfPerson, pageable, total);
     }
 
     @Override
@@ -103,13 +138,27 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     }
 
     @Override
-    public List<Location> readLinkedAndUnlinkedLocationsOfPerson(long personId) {
+    public Page<Location> readLinkedAndUnlinkedLocationsOfPerson(long personId,
+                                                                 PagingAndSortingContext pagingAndSortingContext) {
         readPersonById(personId);
 
-        return entityManager.createQuery("FROM Location l WHERE l.person.id = :personId OR " +
-                        "l.person = null", Location.class)
+        long total = (long) entityManager.createQuery("SELECT COUNT(*) FROM Location WHERE person.id = :personId OR " +
+                        "person.id IS NULL")
                 .setParameter("personId", personId)
+                .getSingleResult();
+
+        int offset = pagingAndSortingContext.calculateOffset(total);
+
+        List<Location> locations = entityManager.createQuery("FROM Location l WHERE l.person.id = :personId OR " +
+                        "l.person.id IS NULL " +
+                        "ORDER BY " + pagingAndSortingContext.getSortForDBAccess(), Location.class)
+                .setParameter("personId", personId)
+                .setFirstResult(offset)
+                .setMaxResults(pagingAndSortingContext.getSize())
                 .getResultList();
+
+        Pageable pageable = pagingAndSortingContext.getPageable();
+        return new PageImpl<>(locations, pageable, total);
     }
 
     @Override

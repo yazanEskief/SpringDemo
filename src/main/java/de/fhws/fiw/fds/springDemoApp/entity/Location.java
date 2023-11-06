@@ -2,13 +2,14 @@ package de.fhws.fiw.fds.springDemoApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonRootName;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.Sortable;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "location")
 @JsonRootName("location")
-public class Location {
+public class Location implements Sortable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
