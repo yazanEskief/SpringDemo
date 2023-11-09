@@ -6,6 +6,7 @@ import de.fhws.fiw.fds.springDemoApp.controller.Dispatcher;
 import de.fhws.fiw.fds.springDemoApp.controller.LocationController;
 import de.fhws.fiw.fds.springDemoApp.controller.PersonController;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PageMetaDataImpl;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import org.springframework.data.domain.Page;
 import org.springframework.hateoas.CollectionModel;
@@ -81,7 +82,8 @@ public class LocationModelAssembler implements RepresentationModelAssembler<Loca
                                                           PagingAndSortingContext pagingAndSortingContext,
                                                           LocalDate visitedOn) {
         var collectionModel = toCollectionModel(page.getContent());
-        var pageMetaData = new PagedModel.PageMetadata(page.getSize(), page.getNumber(), page.getTotalElements());
+        var pageMetaData = new PageMetaDataImpl(page.getSize(), page.getNumber(), page.getTotalElements(),
+                page.getContent().size());
         var pagedModel = PagedModel.of(collectionModel.getContent(), pageMetaData);
 
         pagedModel.add(collectionModel.getLinks());
@@ -152,7 +154,8 @@ public class LocationModelAssembler implements RepresentationModelAssembler<Loca
                                                                   long personId,
                                                                   PagingAndSortingContext pagingAndSortingContext) {
         var collectionModel = toCollectionModelOnPerson(page.getContent(), showAll, personId);
-        var pageMetaData = new PagedModel.PageMetadata(page.getSize(), page.getNumber(), page.getTotalElements());
+        var pageMetaData = new PageMetaDataImpl(page.getSize(), page.getNumber(), page.getTotalElements(),
+                page.getContent().size());
 
         PagedModel<EntityModel<Location>> pagedModel = PagedModel.of(collectionModel.getContent(), pageMetaData);
         pagedModel.add(collectionModel.getLinks());

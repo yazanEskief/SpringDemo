@@ -1,7 +1,7 @@
 package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
-import de.fhws.fiw.fds.springDemoApp.exception.LocationNotFoundException;
+import de.fhws.fiw.fds.springDemoApp.exception.EntityNotFoundException;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
@@ -78,7 +78,7 @@ public class LocationDAOImpl implements LocationDAO {
     public Location readLocationById(long locationId) {
         Location locationFromDB = entityManager.find(Location.class, locationId);
         if(locationFromDB == null) {
-            throw new LocationNotFoundException("Location with ID: " + locationId + " couldn't be found");
+            throw new EntityNotFoundException("Location with ID: " + locationId + " couldn't be found");
         }
         return locationFromDB;
     }

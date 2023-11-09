@@ -5,6 +5,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 import de.fhws.fiw.fds.springDemoApp.controller.Dispatcher;
 import de.fhws.fiw.fds.springDemoApp.controller.PersonController;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PageMetaDataImpl;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import org.springframework.data.domain.Page;
@@ -51,8 +52,8 @@ public class PersonModelAssembler implements RepresentationModelAssembler<Person
                                                         final PagingAndSortingContext pagingContext) {
         var collectionModel = toCollectionModel(page.getContent());
 
-        var pageMetaData = new PagedModel.PageMetadata(page.getSize(), page.getNumber(),
-                page.getTotalElements(), page.getTotalPages());
+        var pageMetaData = new PageMetaDataImpl(page.getSize(), page.getNumber(),
+                page.getTotalElements(), page.getTotalPages(), page.getContent().size());
         PagedModel<EntityModel<Person>> pagedModel = PagedModel.of(collectionModel.getContent(), pageMetaData);
 
         pagedModel.add(collectionModel.getLinks());

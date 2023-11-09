@@ -2,8 +2,8 @@ package de.fhws.fiw.fds.springDemoApp.dao;
 
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
+import de.fhws.fiw.fds.springDemoApp.exception.EntityNotFoundException;
 import de.fhws.fiw.fds.springDemoApp.exception.LinkLocationToPersonNotAllowedException;
-import de.fhws.fiw.fds.springDemoApp.exception.PersonNotFoundException;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import jakarta.persistence.EntityManager;
@@ -64,7 +64,7 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
         Person personFromDB = entityManager.find(Person.class, personId);
         if (personFromDB != null) {
             return personFromDB;
-        } else throw new PersonNotFoundException("Person with ID: " + personId + " couldn't be found");
+        } else throw new EntityNotFoundException("Person with ID: " + personId + " couldn't be found");
     }
 
     @Override
@@ -130,7 +130,7 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
                         .setParameter("personId", personId)
                         .setParameter("locationId", locationId)
                         .getResultStream().findFirst().orElseThrow(() -> {
-                            throw new PersonNotFoundException("Location with ID: " + locationId + " is not found for Person" +
+                            throw new EntityNotFoundException("Location with ID: " + locationId + " is not found for Person" +
                                     " with ID: " + personId);
                         });
 

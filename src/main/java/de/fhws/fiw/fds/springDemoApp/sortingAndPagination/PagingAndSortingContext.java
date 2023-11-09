@@ -24,12 +24,10 @@ public class PagingAndSortingContext {
 
     private String property;
 
-    public PagingAndSortingContext(final int page, final int size, final String sort, final Class<?> clazz) {
+    public PagingAndSortingContext(final int page, final int size, final String sort,
+                                   final Class<? extends Sortable> clazz) {
         this.page = Math.max(page, 0);
         this.size = Math.min(Math.max(size, 1), 100);
-        if (!Sortable.class.isAssignableFrom(clazz)) {
-            throw new IllegalArgumentException("clazz must implement " + Sortable.class.getSimpleName());
-        }
         this.clazz = clazz;
         this.classFields = setClassFields();
         this.sort = setSort(sort);
@@ -102,7 +100,7 @@ public class PagingAndSortingContext {
     }
 
     public int calculateOffset(long totalEntities) {
-        return Math.max(Math.min(page * size, (int) totalEntities - size), 0);
+        return Math.max(Math.min(page * size, (int) totalEntities), 0);
     }
 
     public Pageable getPageable() {

@@ -1,6 +1,7 @@
 package de.fhws.fiw.fds.springDemoApp.exception;
 
 import de.fhws.fiw.fds.springDemoApp.util.Operation;
+import de.fhws.fiw.fds.springDemoApp.util.Roles;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 @ControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler(value = {PersonNotFoundException.class, LocationNotFoundException.class})
+    @ExceptionHandler(value = {EntityNotFoundException.class})
     public ResponseEntity<ExceptionEntity> exceptionHandler(Exception e) {
 
         ExceptionEntity exceptionEntity = new ExceptionEntity(
@@ -39,15 +40,25 @@ public class ApiExceptionHandler {
                 LocalDateTime.now()
         );
 
-        if(e.getClass() == MethodArgumentTypeMismatchException.class) {
-            String operation = request.getParameter("op");
-            List<Operation> operations = Arrays.asList(Operation.values());
-            exceptionEntity = new ExceptionEntity(
-                    "operation " + operation + " is not recognized. Supported Operations: " +
-                            operations.stream().map(Enum::toString).collect(Collectors.joining(", ")),
-                    HttpStatus.BAD_REQUEST,
-                    LocalDateTime.now()
-            );
+        if (e instanceof MethodArgumentTypeMismatchException exception) {
+            if (exception.getRequiredType() == Operation.class) {
+                String operation = request.getParameter("op");
+                List<Operation> operations = Arrays.asList(Operation.values());
+                exceptionEntity = new ExceptionEntity(
+                        "operation " + operation + " is not recognized. Supported Operations: " +
+                                operations.stream().map(Enum::toString).collect(Collectors.joining(", ")),
+                        HttpStatus.BAD_REQUEST,
+                        LocalDateTime.now()
+                );
+            }
+
+            if(exception.getRequiredType() == Roles.class) {
+                exceptionEntity = new ExceptionEntity(
+                        "Unrecognized Role: " + exception.getValue(),
+                        HttpStatus.BAD_REQUEST,
+                        LocalDateTime.now()
+                );
+            }
         }
 
         return new ResponseEntity<>(exceptionEntity, HttpStatus.BAD_REQUEST);
