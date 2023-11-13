@@ -5,6 +5,7 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 import de.fhws.fiw.fds.springDemoApp.controller.UserController;
 import de.fhws.fiw.fds.springDemoApp.entity.User;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PageMetaDataImpl;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingConfig;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import org.springframework.data.domain.Page;
 import org.springframework.hateoas.CollectionModel;
@@ -24,13 +25,18 @@ public class UserModelAssembler implements RepresentationModelAssembler<User, En
         userModel.add(linkTo(methodOn(UserController.class).getUserById(entity.getId()))
                 .withSelfRel()
                 .withType(MediaType.APPLICATION_JSON_VALUE));
+        userModel.add(linkTo(methodOn(UserController.class).getRolesOfUser(entity.getId(),
+                PagingAndSortingConfig.PAGE, PagingAndSortingConfig.SIZE))
+                .withRel("roles")
+                .withType(MediaType.APPLICATION_JSON_VALUE));
         userModel.add(linkTo(methodOn(UserController.class).updateUser(entity.getId(), null))
                 .withRel("updateUser")
                 .withType(MediaType.APPLICATION_JSON_VALUE));
         userModel.add(linkTo(methodOn(UserController.class).deleteUser(entity.getId()))
                 .withRel("deleteUser")
                 .withType(MediaType.APPLICATION_JSON_VALUE));
-        userModel.add(linkTo(methodOn(UserController.class).getAllUsers("", 0, 20, "id"))
+        userModel.add(linkTo(methodOn(UserController.class).getAllUsers("",
+                PagingAndSortingConfig.PAGE, PagingAndSortingConfig.SIZE, PagingAndSortingConfig.SORT))
                 .withRel("users")
                 .withType(MediaType.APPLICATION_JSON_VALUE));
 

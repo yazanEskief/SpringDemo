@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Repository
-public class UserDAOImpl implements UserDAO, UserDetailsService {
+public class UserDAOImpl implements UserDAO, UserRoleDAO, UserDetailsService {
 
     final private EntityManager entityManager;
 
@@ -33,6 +33,16 @@ public class UserDAOImpl implements UserDAO, UserDetailsService {
     @Override
     public long countUsers() {
         return (long) entityManager.createQuery("SELECT COUNT(*) FROM User")
+                .getSingleResult();
+    }
+
+    @Override
+    public long countRolesOfUser(final long userId) {
+        getUserById(userId);
+
+        return (long) entityManager.createQuery("SELECT COUNT(r.id) FROM Role r JOIN r.users u" +
+                        " WHERE u.id = :id")
+                .setParameter("id", userId)
                 .getSingleResult();
     }
 
@@ -77,6 +87,23 @@ public class UserDAOImpl implements UserDAO, UserDetailsService {
 
         Pageable pageable = pagingAndSortingContext.getPageable();
         return new PageImpl<>(users, pageable, total);
+    }
+
+    @Override
+    public Page<Role> getAllRoleOfUser(long userId, PagingAndSortingContext pagingAndSortingContext) {
+        long total = countRolesOfUser(userId);
+        int offset = pagingAndSortingContext.calculateOffset(total);
+
+        List<Role> rolesFromDB = entityManager.createQuery("FROM Role r JOIN FETCH r.users u " +
+                        "WHERE u.id = :userId", Role.class)
+                .setParameter("userId", userId)
+                .setFirstResult(offset)
+                .setMaxResults(pagingAndSortingContext.getSize())
+                .getResultList();
+
+        Pageable pageable = pagingAndSortingContext.getPageable();
+
+        return new PageImpl<>(rolesFromDB, pageable, total);
     }
 
     @Override

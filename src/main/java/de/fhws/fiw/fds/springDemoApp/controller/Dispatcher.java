@@ -12,14 +12,17 @@ import de.fhws.fiw.fds.springDemoApp.util.DataFaker;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.RepresentationModel;
+import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/api")
@@ -69,14 +72,19 @@ public class Dispatcher {
         model.add(linkTo(LocationController.class).withRel("locations").withType(MediaType.APPLICATION_JSON_VALUE));
         model.add(linkTo(UserController.class).withRel("users").withType(MediaType.APPLICATION_JSON_VALUE));
 
-        return ResponseEntity.ok(model);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePublic().noTransform())
+                .body(model);
     }
 
     @GetMapping("/initializedatabase")
-    public void initializeDatabase() {
-        List<Person> people = DataFaker.generatePeopleWithLocations(10, 3);
+    public void initializeDatabase(
+            @RequestParam(name = "people", defaultValue = "10") final int people,
+            @RequestParam(name = "locations", defaultValue = "3") final int locations
+    ) {
+        List<Person> generatedPeople = DataFaker.generatePeopleWithLocations(people, locations);
 
-        people.forEach(personDAOImpl::persistPerson);
+        generatedPeople.forEach(personDAOImpl::persistPerson);
     }
 
     @GetMapping("/cleardatabase")

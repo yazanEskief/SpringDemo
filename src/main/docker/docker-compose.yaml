@@ -6,7 +6,7 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: people
-      MYSQL_USER: yazan
+      MYSQL_USER: demouser
       MYSQL_PASSWORD: password
     ports:
       - "3306:3306"
@@ -18,13 +18,18 @@ services:
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-      MYSQL_USER: yazan
+      MYSQL_USER: demouser
       MYSQL_PASSWORD: password
       MYSQL_ROOT_PASSWORD: secret
     ports:
       - "8081:80"
     depends_on:
       - db
+
+  nginx:
+    build: ./nginx
+    ports:
+      - "80:80"
 
 volumes:
   sutton-spring:

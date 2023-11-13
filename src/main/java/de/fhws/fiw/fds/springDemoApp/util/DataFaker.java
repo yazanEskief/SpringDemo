@@ -14,9 +14,12 @@ public class DataFaker {
     public static Person createPerson() {
         Random random = new Random();
 
-        String[] firstNames = new String[]{"Yazan", "Haya", "Maged", "Maha", "Leen", "Peter", "Manuel",
-        "Daniela", "Marco", "Filippo", "Angela", "Khaled", "Frances"};
-        String[] lastNames = new String[] {"Eskief", "Rodaro", "Gambirasi", "Braun", "Balash", "Ronaldo"};
+        String[] firstNames = new String[]{"Ethan", "Olivia", "Liam", "Emma", "Noah", "Ava", "Sophia",
+        "Jackson", "Aiden", "Lucas", "Isabella", "Mia", "Oliver", "Amelia", "Harper", "Elijah", "Abigail",
+        "Benjamin", "Charlotte", "Samuel"};
+        String[] lastNames = new String[] {"Smith", "Johnson", "Williams", "Brown", "Davis", "Miller", "Wilson",
+        "Moore", "Taylor", "Anderson", "Thomas", "White", "Harris", "Martin", "Thompson", "Garcia",
+        "Martinez", "Robinson"};
         String[] emails = new String[] {"yahoo", "hotmail", "gamil"};
 
         int year = random.nextInt(1950, LocalDate.now().getYear() -18);
@@ -28,7 +31,7 @@ public class DataFaker {
 
         String firstName = firstNames[firstNameIndex];
         String lastName = lastNames[lastNameIndex];
-        String email = firstName + "." + lastName + "@" + emails[emailIndex] + ".com";
+        String email = firstName.toLowerCase() + "." + lastName.toLowerCase() + "@" + emails[emailIndex] + ".com";
         LocalDate birthdate = LocalDate.of(year, month, day);
 
         Person result = new Person();
@@ -44,7 +47,8 @@ public class DataFaker {
         Random random = new Random();
 
         String[] cities = new String[] {"New York", "London", "Aleppo", "Stuttgart", "Damascus", "Munich",
-        "Wuerzburg"};
+        "Wuerzburg", "Oaksville", "Harborfield", "Meadowville", "Rivercrest", "Summitville", "Lakeside",
+        "Pineview", "Brooksville", "Springdale"};
         double latitude = random.nextDouble(-90.0, 91.0);
         double longitude = random.nextDouble(-90.0, 91.0);
         int cityIndex = random.nextInt(0, cities.length);

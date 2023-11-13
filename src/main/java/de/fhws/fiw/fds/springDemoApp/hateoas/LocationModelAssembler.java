@@ -7,6 +7,7 @@ import de.fhws.fiw.fds.springDemoApp.controller.LocationController;
 import de.fhws.fiw.fds.springDemoApp.controller.PersonController;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PageMetaDataImpl;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingConfig;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import org.springframework.data.domain.Page;
 import org.springframework.hateoas.CollectionModel;
@@ -139,11 +140,13 @@ public class LocationModelAssembler implements RepresentationModelAssembler<Loca
 
         if (showAll) {
             locationModels.add(linkTo(methodOn(PersonController.class)
-                    .getAllLocationsOfPerson(personId, false, 0, 20, "id"))
+                    .getAllLocationsOfPerson(personId, false,
+                            PagingAndSortingConfig.PAGE, PagingAndSortingConfig.SIZE, PagingAndSortingConfig.SORT))
                     .withRel("locationOfPersonOnly").withType(MediaType.APPLICATION_JSON_VALUE));
         } else {
             locationModels.add(linkTo(methodOn(PersonController.class)
-                    .getAllLocationsOfPerson(personId, true, 0, 20, "id"))
+                    .getAllLocationsOfPerson(personId, true,
+                            PagingAndSortingConfig.PAGE, PagingAndSortingConfig.SIZE, PagingAndSortingConfig.SORT))
                     .withRel("allLocations").withType(MediaType.APPLICATION_JSON_VALUE));
         }
 

@@ -2,7 +2,7 @@ package de.fhws.fiw.fds.springDemoApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonRootName;
-import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.Sortable;
+import de.fhws.fiw.fds.springDemoApp.caching.EtagGenerator;
 import jakarta.persistence.*;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
@@ -13,13 +13,7 @@ import java.util.Set;
 @Entity
 @Table(name = "users")
 @JsonRootName("user")
-public class User implements Sortable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private long id;
-
+public class User extends AbstractEntity {
     @Column(name = "username", unique = true, nullable = false)
     private String username;
 
@@ -29,8 +23,9 @@ public class User implements Sortable {
     @Column(name = "password", nullable = false)
     private String password;
 
+    @JsonIgnore
     @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.PERSIST,
-    CascadeType.REFRESH}, fetch = FetchType.EAGER)
+            CascadeType.REFRESH}, fetch = FetchType.LAZY)
     @JoinTable(name = "user_role",
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
@@ -45,12 +40,16 @@ public class User implements Sortable {
         setPassword(password);
     }
 
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
+    @Override
+    public String getEtag(EtagGenerator etagGenerator) {
+        try {
+            User clone = (User) this.clone();
+            clone.setRoles(null);
+            return etagGenerator.generateEtag(clone);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public String getUsername() {
@@ -98,7 +97,6 @@ public class User implements Sortable {
     public void removeRole(String role) {
         roles.removeIf(r -> r.getRoleName().equals(role));
     }
-
 
     @Override
     public String toString() {

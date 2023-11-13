@@ -6,6 +6,7 @@ import de.fhws.fiw.fds.springDemoApp.controller.Dispatcher;
 import de.fhws.fiw.fds.springDemoApp.controller.PersonController;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PageMetaDataImpl;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingConfig;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import org.springframework.data.domain.Page;
@@ -25,7 +26,9 @@ public class PersonModelAssembler implements RepresentationModelAssembler<Person
         personModel.add(linkTo(methodOn(PersonController.class).getPersonById(entity.getId())).withSelfRel()
                 .withType(MediaType.APPLICATION_JSON_VALUE));
         personModel.add(linkTo(methodOn(PersonController.class)
-                .getAllLocationsOfPerson(entity.getId(), false, 0, 20, "id")).withRel("locations")
+                .getAllLocationsOfPerson(entity.getId(), false,
+                        PagingAndSortingConfig.PAGE, PagingAndSortingConfig.SIZE,
+                        PagingAndSortingConfig.SORT)).withRel("locations")
                 .withType(MediaType.APPLICATION_JSON_VALUE));
         personModel.add(linkTo(methodOn(PersonController.class).deletePerson(entity.getId())).withRel("deletePerson")
                 .withType(MediaType.APPLICATION_JSON_VALUE));

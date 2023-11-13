@@ -2,19 +2,15 @@ package de.fhws.fiw.fds.springDemoApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonRootName;
-import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.Sortable;
+import de.fhws.fiw.fds.springDemoApp.caching.EtagGenerator;
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "location")
 @JsonRootName("location")
-public class Location implements Sortable {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    private long id;
+public class Location extends AbstractEntity {
 
     @Column(name = "city_name")
     private String cityName;
@@ -36,12 +32,16 @@ public class Location implements Sortable {
     public Location() {
     }
 
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
+    @Override
+    public String getEtag(EtagGenerator etagGenerator) {
+        try {
+            Location clone = (Location) clone();
+            clone.setPerson(null);
+            return etagGenerator.generateEtag(clone);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public String getCityName() {

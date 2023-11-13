@@ -2,21 +2,25 @@ package de.fhws.fiw.fds.springDemoApp.controller;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 
+import de.fhws.fiw.fds.springDemoApp.caching.CacheController;
 import de.fhws.fiw.fds.springDemoApp.dao.PersonDAOImpl;
 import de.fhws.fiw.fds.springDemoApp.entity.Location;
 import de.fhws.fiw.fds.springDemoApp.entity.Person;
 import de.fhws.fiw.fds.springDemoApp.exception.UnsupportedUnlinkOperation;
 import de.fhws.fiw.fds.springDemoApp.hateoas.LocationModelAssembler;
 import de.fhws.fiw.fds.springDemoApp.hateoas.PersonModelAssembler;
+import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingConfig;
 import de.fhws.fiw.fds.springDemoApp.sortingAndPagination.PagingAndSortingContext;
 import de.fhws.fiw.fds.springDemoApp.util.HyperLinks;
 import de.fhws.fiw.fds.springDemoApp.util.Operation;
 import de.fhws.fiw.fds.springDemoApp.util.UnlinkResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.PagedModel;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 @RestController
 @RequestMapping("/api/person")
@@ -35,12 +40,19 @@ public class PersonController {
 
     final private LocationModelAssembler locationModelAssembler;
 
+    final private HttpServletRequest request;
+
+    final private CacheController cacheController;
+
     @Autowired
     public PersonController(PersonDAOImpl personDAOImpl, PersonModelAssembler personModelAssembler,
-                            LocationModelAssembler locationModelAssembler) {
+                            LocationModelAssembler locationModelAssembler, CacheController cacheController,
+                            HttpServletRequest request) {
         this.personDAOImpl = personDAOImpl;
         this.personModelAssembler = personModelAssembler;
         this.locationModelAssembler = locationModelAssembler;
+        this.cacheController = cacheController;
+        this.request = request;
     }
 
     @GetMapping(value = "", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
@@ -48,9 +60,9 @@ public class PersonController {
             (@RequestParam(name = "firstname", defaultValue = "") String firstname,
              @RequestParam(name = "lastname", defaultValue = "") String lastname,
              @RequestParam(name = "op", defaultValue = "AND") final Operation operation,
-             @RequestParam(name = "page", defaultValue = "0") final int page,
-             @RequestParam(name = "size", defaultValue = "20") final int size,
-             @RequestParam(name = "sort", defaultValue = "id") final String sort) {
+             @RequestParam(name = "page", defaultValue = PagingAndSortingConfig.PAGE_STRING) final int page,
+             @RequestParam(name = "size", defaultValue = PagingAndSortingConfig.SIZE_STRING) final int size,
+             @RequestParam(name = "sort", defaultValue = PagingAndSortingConfig.SORT) final String sort) {
         var pagingContext = new PagingAndSortingContext(page, size, sort, Person.class);
 
         Page<Person> allPeople =
@@ -58,13 +70,21 @@ public class PersonController {
 
         var result = personModelAssembler.toPagedModel(allPeople, firstname, lastname, operation, pagingContext);
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok()
+                .cacheControl(cacheController.publicCache30Seconds())
+                .varyBy(HttpHeaders.ACCEPT)
+                .body(result);
     }
 
     @GetMapping(value = "/{id}", produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public EntityModel<Person> getPersonById(@PathVariable long id) {
+    public ResponseEntity<EntityModel<Person>> getPersonById(@PathVariable long id) {
         Person personFromDB = personDAOImpl.readPersonById(id);
-        return personModelAssembler.toModel(personFromDB);
+        EntityModel<Person> personEntityModel = personModelAssembler.toModel(personFromDB);
+
+        return cacheController.configureCachingForGETSingleRequests(
+                request,
+                personEntityModel
+        );
     }
 
     @PostMapping(value = "", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
@@ -78,10 +98,19 @@ public class PersonController {
     }
 
     @PutMapping(value = "/{id}", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
-    public ResponseEntity<?> updatePerson(@PathVariable long id, @RequestBody Person updatedPerson) {
-        updatedPerson.setId(id);
-        personDAOImpl.updatePerson(id, updatedPerson);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<EntityModel<Person>> updatePerson(@PathVariable long id, @RequestBody Person updatedPerson) {
+        Person personFromDB = personDAOImpl.readPersonById(id);
+
+        Supplier<EntityModel<Person>> personEntityModelSupplier = () -> {
+            Person newPerson = personDAOImpl.updatePerson(id, updatedPerson);
+            return personModelAssembler.toModel(newPerson);
+        };
+
+        return cacheController.configureCachingForPUTRequests(
+                request,
+                personEntityModelSupplier,
+                personFromDB
+        );
     }
 
     @DeleteMapping("/{id}")
@@ -102,9 +131,12 @@ public class PersonController {
     public ResponseEntity<EntityModel<Location>> getSingleLocationOfPerson(@PathVariable long personId,
                                                                            @PathVariable long locationId) {
         Location locationFromDB = personDAOImpl.readSingleLocationOfPerson(personId, locationId);
+        EntityModel<Location> locationEntityModel = locationModelAssembler.toModelOnPerson(locationFromDB, personId);
 
-        return ResponseEntity.ok()
-                .body(locationModelAssembler.toModel(locationFromDB));
+        return cacheController.configureCachingForGETSingleRequests(
+                request,
+                locationEntityModel
+        );
     }
 
     @GetMapping(value = "/{personId}/location",
@@ -112,23 +144,29 @@ public class PersonController {
     public ResponseEntity<PagedModel<EntityModel<Location>>> getAllLocationsOfPerson
             (@PathVariable long personId,
              @RequestParam(name = "showAll", required = false, defaultValue = "false") boolean showAll,
-             @RequestParam(name = "page", defaultValue = "0") final int page,
-             @RequestParam(name = "size", defaultValue = "20") final int size,
-             @RequestParam(name = "sort", defaultValue = "id") final String sort) {
+             @RequestParam(name = "page", defaultValue = PagingAndSortingConfig.PAGE_STRING) final int page,
+             @RequestParam(name = "size", defaultValue = PagingAndSortingConfig.SIZE_STRING) final int size,
+             @RequestParam(name = "sort", defaultValue = PagingAndSortingConfig.SORT) final String sort) {
 
         PagingAndSortingContext pagingAndSortingContext = new PagingAndSortingContext(page, size, sort, Location.class);
         if (showAll == false) {
             Page<Location> locationsOfPerson = personDAOImpl.readAllLocationOfPerson(personId, pagingAndSortingContext);
-            return ResponseEntity.ok(locationModelAssembler
-                    .toPagedModelOnPerson(locationsOfPerson, showAll, personId, pagingAndSortingContext));
+            return ResponseEntity.ok()
+                    .cacheControl(cacheController.publicCache30Seconds())
+                    .varyBy(HttpHeaders.ACCEPT)
+                    .body(locationModelAssembler
+                            .toPagedModelOnPerson(locationsOfPerson, showAll, personId, pagingAndSortingContext));
         }
 
         Page<Location> locationsFromDB = personDAOImpl.readLinkedAndUnlinkedLocationsOfPerson(personId,
                 pagingAndSortingContext);
 
-        return ResponseEntity.ok(
-                locationModelAssembler.toPagedModelOnPerson(locationsFromDB, showAll, personId, pagingAndSortingContext)
-        );
+        return ResponseEntity.ok()
+                .varyBy(HttpHeaders.ACCEPT)
+                .cacheControl(cacheController.publicCache30Seconds())
+                .body(
+                        locationModelAssembler.toPagedModelOnPerson(locationsFromDB, showAll, personId, pagingAndSortingContext)
+                );
     }
 
     @PostMapping(value = "/{personId}/location",
@@ -136,7 +174,6 @@ public class PersonController {
     public ResponseEntity<EntityModel<Location>> addLocationToPerson(@PathVariable long personId,
                                                                      @RequestBody Location location) {
         location.setId(0);
-
         Location createdLocation = personDAOImpl.addLocationToPerson(personId, location);
 
         return ResponseEntity.created(
@@ -162,25 +199,19 @@ public class PersonController {
                                                                       @PathVariable long locationId) {
         Location linkedLocation = personDAOImpl.linkLocationToPerson(personId, locationId);
 
-        return ResponseEntity.ok()
+        return ResponseEntity.accepted()
                 .body(locationModelAssembler.toModel(linkedLocation));
     }
 
     @PutMapping("{personId}/location/{locationId}")
     public ResponseEntity<?> unLinkLocationFromPerson(@PathVariable long personId, @PathVariable long locationId) {
-        personDAOImpl.unlinkLocationFromPerson(personId, locationId);
+        Location unlickedLocation = personDAOImpl.unlinkLocationFromPerson(personId, locationId);
 
-        return ResponseEntity.noContent()
-                .header("Link", HyperLinks.createHyperLink(
-                        linkTo(methodOn(PersonController.class)
-                                .getAllLocationsOfPerson(personId, false, 0, 20, "id"))
-                                .toUri().toASCIIString(),
-                        "locationOfPerson",
-                        MediaType.APPLICATION_JSON_VALUE
-                )).build();
+        return ResponseEntity.accepted()
+                .body(locationModelAssembler.toModelOnPerson(unlickedLocation, personId));
     }
 
-    @PatchMapping("/{personId}/location")
+    @PutMapping("/{personId}/location")
     public ResponseEntity<CollectionModel<UnlinkResponse>> unlinkLocationsOfPerson(
             @PathVariable final long personId,
             @RequestParam(name = "ids", defaultValue = "") final List<Long> locationIds) {
@@ -213,7 +244,8 @@ public class PersonController {
 
         CollectionModel<UnlinkResponse> model = CollectionModel.of(responses);
         model.add(linkTo(methodOn(PersonController.class)
-                .getAllLocationsOfPerson(personId, false, 0, 20, "id"))
+                .getAllLocationsOfPerson(personId, false, PagingAndSortingConfig.PAGE,
+                        PagingAndSortingConfig.SIZE, PagingAndSortingConfig.SORT))
                 .withRel("locationOfPerson").withType(MediaType.APPLICATION_JSON_VALUE));
 
         return ResponseEntity.status(HttpStatus.MULTI_STATUS)

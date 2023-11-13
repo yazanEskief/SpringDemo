@@ -13,7 +13,7 @@ public interface PersonDAO {
 
     long getPersonCount();
 
-    void updatePerson(long personId, Person person);
+    Person updatePerson(long personId, Person person);
 
     void deletePerson(long personId);
 

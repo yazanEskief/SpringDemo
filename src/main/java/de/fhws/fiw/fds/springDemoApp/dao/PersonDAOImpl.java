@@ -38,12 +38,13 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
 
     @Override
     @Transactional
-    public void updatePerson(long personId, Person person) {
+    public Person updatePerson(long personId, Person person) {
         Person personFromDB = readPersonById(personId);
 
         personFromDB.updatePerson(person);
 
         entityManager.merge(personFromDB);
+        return personFromDB;
     }
 
     @Override
@@ -214,8 +215,8 @@ public class PersonDAOImpl implements PersonDAO, PersonLocationDAO {
     public Location unlinkLocationFromPerson(long personId, long locationId) {
         try {
             Location locationFromDB = readSingleLocationOfPerson(personId, locationId);
-            locationFromDB.setPerson(null);
             Person personFromDB = readPersonById(personId);
+            locationFromDB.setPerson(null);
             personFromDB.getLocations().removeIf(l -> l.getId() == locationId);
 
             entityManager.merge(personFromDB);
